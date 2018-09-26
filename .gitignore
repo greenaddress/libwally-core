@@ -81,6 +81,11 @@ docs/source/script.rst
 docs/source/transaction.rst
 .idea/
 
+# WebAssembly
+wallycore.html
+wallycore.js
+wallycore.wasm
+
 # Windows
 *.obj
 *.dll
