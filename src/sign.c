@@ -233,6 +233,61 @@ int wally_ec_sig_from_bytes(const unsigned char *priv_key, size_t priv_key_len,
     }
 }
 
+int wally_ec_recoverable_sig_from_bytes(const unsigned char *priv_key, size_t priv_key_len,
+                                        const unsigned char *bytes, size_t bytes_len,
+                                        uint32_t flags,
+                                        unsigned char *bytes_out, size_t len,
+                                        int *recid)
+{
+    wally_ec_nonce_t nonce_fn = wally_ops()->ec_nonce_fn;
+    const secp256k1_context *ctx = secp_ctx();
+
+    if (!priv_key || priv_key_len != EC_PRIVATE_KEY_LEN ||
+        !bytes || bytes_len != EC_MESSAGE_HASH_LEN ||
+        !is_valid_ec_type(flags) || flags & ~EC_FLAGS_ALL ||
+        !bytes_out || len != EC_SIGNATURE_LEN ||
+        !recid)
+        return WALLY_EINVAL;
+
+    if (!ctx)
+        return WALLY_ENOMEM;
+
+    if (flags & EC_FLAG_SCHNORR) {
+        return WALLY_EINVAL;
+#if 0 /*FIXME: Schnorr is unavailable in secp for now*/
+        if (!secp256k1_schnorr_sign(ctx, bytes_out, bytes,
+                                    priv_key, nonce_fn, NULL))
+            return WALLY_EINVAL; /* Failed to sign */
+        return WALLY_OK;
+#endif
+    } else {
+        unsigned char extra_entropy[32] = {0}, *entropy_p = NULL;
+        uint32_t counter = 0;
+        secp256k1_ecdsa_recoverable_signature sig_secp;
+
+        while (true) {
+            if (!secp256k1_ecdsa_sign_recoverable(ctx, &sig_secp, bytes, priv_key, nonce_fn, entropy_p)) {
+                wally_clear(&sig_secp, sizeof(sig_secp));
+                if (!secp256k1_ec_seckey_verify(ctx, priv_key))
+                    return WALLY_EINVAL; /* invalid priv_key */
+                return WALLY_ERROR;     /* Nonce function failed */
+            }
+
+            /* Note this function is documented as never failing */
+            secp256k1_ecdsa_recoverable_signature_serialize_compact(ctx, bytes_out, recid, &sig_secp);
+
+            if (!(flags & EC_FLAG_GRIND_R) || bytes_out[0] < 0x80) {
+                wally_clear(&sig_secp, sizeof(sig_secp));
+                return WALLY_OK;
+            }
+            /* Incremement nonce to grind for low-R */
+            entropy_p = extra_entropy;
+            ++counter;
+            uint32_to_le_bytes(counter, entropy_p);
+        }
+    }
+}
+
 int wally_ec_sig_verify(const unsigned char *pub_key, size_t pub_key_len,
                         const unsigned char *bytes, size_t bytes_len,
                         uint32_t flags,

@@ -360,6 +360,28 @@ WALLY_CORE_API int wally_ec_sig_from_bytes(
     size_t len);
 
 /**
+ * Sign a message hash with a private key, producing a recoverable compact signature.
+ *
+ * :param priv_key: The private key to sign with.
+ * :param priv_key_len: The length of ``priv_key`` in bytes. Must be ``EC_PRIVATE_KEY_LEN``.
+ * :param bytes: The message hash to sign.
+ * :param bytes_len: The length of ``bytes`` in bytes. Must be ``EC_MESSAGE_HASH_LEN``.
+ * :param flags: EC_FLAG_ flag values indicating desired behavior.
+ * :param bytes_out: Destination for the resulting compact signature.
+ * :param len: The length of ``bytes_out`` in bytes. Must be ``EC_SIGNATURE_LEN``.
+ * :param recid: Destination for the recoverable id
+ */
+WALLY_CORE_API int wally_ec_recoverable_sig_from_bytes(
+    const unsigned char *priv_key,
+    size_t priv_key_len,
+    const unsigned char *bytes,
+    size_t bytes_len,
+    uint32_t flags,
+    unsigned char *bytes_out,
+    size_t len,
+    int *recid);
+
+/**
  * Convert a signature to low-s form.
  *
  * :param sig: The compact signature to convert.
